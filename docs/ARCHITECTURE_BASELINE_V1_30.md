@@ -46,4 +46,18 @@ HUS is a deterministic declarative compiler/control plane. It must not execute a
 
 ## v1.30 review note
 
-The current Marketplace orchestration uses existing engine service boundaries. Cross-engine operations that span independently committed transactions remain a production hardening item; future work should prefer explicit transaction orchestration or a durable saga/outbox pattern rather than duplicating domain authorities.
+The current Marketplace orchestration uses existing engine service boundaries. Cross-engine checkout operations use explicit transaction orchestration while preserving Finance, Inventory, and Commerce as the authoritative engines.
+
+## Phase 2 checkout hardening
+
+Marketplace checkout now owns an explicit orchestration transaction: Commerce can
+defer its commit when called by checkout, the buyer cart is locked during the
+operation, and Core `IdempotencyRecord` stores the tenant-scoped checkout result
+when an `Idempotency-Key` is supplied. A failure rolls back the SalesOrder,
+inventory reservation, Marketplace order, payout, outbox events, and idempotency
+record created by that checkout.
+
+PostgreSQL concurrency validation showed that duplicate requests with the same
+key converge on one result, while different keys racing on the same cart resolve
+to one checkout and one deterministic empty-cart rejection. SQLite tests do not
+prove these row-locking results.

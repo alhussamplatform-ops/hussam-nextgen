@@ -1,12 +1,16 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, ROUND_HALF_UP
+import hashlib
+import json
 from uuid import uuid4
 from sqlalchemy import select, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.models.core import User, Tenant
+from app.core.models.core import IdempotencyRecord
+from app.core.governance.idempotency import IdempotencyResult, ensure_same_request, IdempotencyConflict
 from app.core.models.marketplace import (
     MarketplaceSellerProfile, MarketplaceCategory, MarketplaceListing,
     MarketplaceBuyerProfile, MarketplaceAddress, MarketplaceCart, MarketplaceCartItem,
@@ -280,9 +284,36 @@ class MarketplaceService:
             items.append({'id':ci.id,'listing':self._listing_view(l,s),'quantity':str(ci.quantity),'line_total':str(_money(ci.quantity)*_money(l.unit_price))})
         return {'id':cart.id,'status':cart.status,'items':items}
 
-    def checkout(self,user_id, shipping_address_id=None, shipping_fee=Decimal('0'), platform_fee_bps=500, shipping_quote_id=None):
-        cart=self.cart(user_id)
-        if cart.status!='active': raise MarketplaceError('cart is not active')
+    def checkout(self,user_id, shipping_address_id=None, shipping_fee=Decimal('0'), platform_fee_bps=500, shipping_quote_id=None, idempotency_key=None, tenant_id=None):
+        try:
+            return self._checkout(user_id, shipping_address_id, shipping_fee, platform_fee_bps, shipping_quote_id, idempotency_key, tenant_id)
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def _checkout(self,user_id, shipping_address_id=None, shipping_fee=Decimal('0'), platform_fee_bps=500, shipping_quote_id=None, idempotency_key=None, tenant_id=None):
+        if idempotency_key and not tenant_id:
+            raise MarketplaceError('tenant context is required for idempotent checkout')
+        self.db.rollback()
+        cart=self.db.scalar(select(MarketplaceCart).where(MarketplaceCart.buyer_user_id==user_id,MarketplaceCart.status=='active').with_for_update())
+        if cart is None:
+            existing_cart=self.db.scalar(select(MarketplaceCart).where(MarketplaceCart.buyer_user_id==user_id))
+            if existing_cart is not None: raise MarketplaceError('cart is not active')
+            raise MarketplaceError('cart is empty')
+        fingerprint=hashlib.sha256(json.dumps({'tenant_id':tenant_id,'user_id':user_id,'shipping_address_id':shipping_address_id,'shipping_fee':str(_money(shipping_fee)),'platform_fee_bps':platform_fee_bps,'shipping_quote_id':shipping_quote_id},sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        if idempotency_key:
+            existing=self.db.scalar(select(IdempotencyRecord).where(IdempotencyRecord.tenant_id==tenant_id,IdempotencyRecord.key==idempotency_key))
+            if existing:
+                try:
+                    ensure_same_request(IdempotencyResult(existing.key,existing.request_hash,201,{}),idempotency_key,fingerprint)
+                except IdempotencyConflict as exc:
+                    raise MarketplaceError('idempotency key was reused for a different checkout') from exc
+                payload=json.loads(existing.response_json)
+                orders=self.db.scalars(select(MarketplaceOrder).where(MarketplaceOrder.id.in_(payload['order_ids']),MarketplaceOrder.buyer_user_id==user_id)).all()
+                if len(orders)!=len(payload['order_ids']): raise MarketplaceError('idempotency result is incomplete')
+                return sorted(orders,key=lambda order: order.id)
+        rows=self.db.execute(select(MarketplaceCartItem,MarketplaceListing,MarketplaceSellerProfile).join(MarketplaceListing,MarketplaceListing.id==MarketplaceCartItem.listing_id).join(MarketplaceSellerProfile,MarketplaceSellerProfile.tenant_id==MarketplaceListing.seller_tenant_id).join(MarketplaceSellerVerification,MarketplaceSellerVerification.seller_tenant_id==MarketplaceListing.seller_tenant_id).where(MarketplaceCartItem.cart_id==cart.id,MarketplaceListing.status=='published',MarketplaceListing.moderation_status=='approved',MarketplaceSellerProfile.status=='active',MarketplaceSellerVerification.status=='approved')).all()
+        if not rows: raise MarketplaceError('cart is empty')
         rows=self.db.execute(select(MarketplaceCartItem,MarketplaceListing,MarketplaceSellerProfile).join(MarketplaceListing,MarketplaceListing.id==MarketplaceCartItem.listing_id).join(MarketplaceSellerProfile,MarketplaceSellerProfile.tenant_id==MarketplaceListing.seller_tenant_id).join(MarketplaceSellerVerification,MarketplaceSellerVerification.seller_tenant_id==MarketplaceListing.seller_tenant_id).where(MarketplaceCartItem.cart_id==cart.id,MarketplaceListing.status=='published',MarketplaceListing.moderation_status=='approved',MarketplaceSellerProfile.status=='active',MarketplaceSellerVerification.status=='approved')).all()
         if not rows: raise MarketplaceError('cart is empty')
         if shipping_address_id and not self.db.scalar(select(MarketplaceAddress).where(MarketplaceAddress.id==shipping_address_id,MarketplaceAddress.user_id==user_id,MarketplaceAddress.active.is_(True))): raise MarketplaceError('shipping address does not belong to buyer')
@@ -315,8 +346,8 @@ class MarketplaceService:
             if product_lines:
                 # Commerce is authoritative for reservation; this stage is deliberately explicit and recoverable.
                 wh=group[0][1].warehouse_id
-                sales=CommerceProductionService(self.db).create_draft(tenant_id=seller_id,reference=f'MKT-SALE:{ref}',warehouse_id=wh,currency=currency,lines=product_lines)
-                CommerceProductionService(self.db).confirm(seller_id,sales.id)
+                sales=CommerceProductionService(self.db).create_draft(tenant_id=seller_id,reference=f'MKT-SALE:{ref}',warehouse_id=wh,currency=currency,lines=product_lines,commit=False)
+                CommerceProductionService(self.db).confirm(seller_id,sales.id,commit=False)
             order=MarketplaceOrder(reference=ref,buyer_user_id=user_id,seller_tenant_id=seller_id,sales_order_id=sales.id if sales else None,shipping_address_id=shipping_address_id,currency=currency,subtotal=subtotal,shipping_fee=_money(shipping_fee),platform_fee=fee,total=total,status='pending_payment')
             self.db.add(order); self.db.flush()
             sales_lines=self.db.scalars(select(SalesOrderLine).where(SalesOrderLine.order_id==sales.id).order_by(SalesOrderLine.id)) .all() if sales else []
@@ -331,7 +362,18 @@ class MarketplaceService:
         # A buyer owns one reusable active cart. Checkout materializes immutable orders, then clears the cart for the next purchase.
         for ci in list(self.db.scalars(select(MarketplaceCartItem).where(MarketplaceCartItem.cart_id==cart.id)).all()):
             self.db.delete(ci)
-        cart.status='active'; cart.updated_at=datetime.now(timezone.utc); self.db.commit()
+        cart.status='active'; cart.updated_at=datetime.now(timezone.utc)
+        if idempotency_key:
+            self.db.add(IdempotencyRecord(tenant_id=tenant_id,key=idempotency_key,request_hash=fingerprint,response_json=json.dumps({'order_ids':[order.id for order in created]},sort_keys=True)))
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            existing=self.db.scalar(select(IdempotencyRecord).where(IdempotencyRecord.tenant_id==tenant_id,IdempotencyRecord.key==idempotency_key)) if idempotency_key else None
+            if existing and existing.request_hash==fingerprint:
+                payload=json.loads(existing.response_json)
+                return sorted(self.db.scalars(select(MarketplaceOrder).where(MarketplaceOrder.id.in_(payload['order_ids']),MarketplaceOrder.buyer_user_id==user_id)).all(),key=lambda order: order.id)
+            raise MarketplaceError('checkout conflict')
         return created
 
     def _order(self, buyer_user_id, order_id, seller_tenant_id=None, lock=False):

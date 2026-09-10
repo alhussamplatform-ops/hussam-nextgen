@@ -1,9 +1,12 @@
+from datetime import date
 from decimal import Decimal
+from sqlalchemy.exc import IntegrityError
 import pytest
 from app.core.persistence import make_session_factory
-from app.core.models import Journal, JournalLineRecord
+from app.core.models import FiscalPeriod, Journal, JournalLineRecord, Tenant
 from app.core.contracts import JournalCommand, JournalLine, StockMovement
 from app.engines.identity import IdentityService, IdentityError
+from app.engines.finance.lifecycle import FinanceLifecycleService
 from app.engines.finance.persistence import FinancePersistenceService
 from app.engines.finance.service import AccountingInvariantError
 from app.engines.inventory.persistence import InventoryPersistenceService
@@ -26,3 +29,12 @@ def test_inventory_records_movement_not_balance():
     s=db(); t=IdentityService(s).create_tenant("A")
     r=InventoryPersistenceService(s).record(t.id,StockMovement("item","wh",Decimal("5"),"in","GRN-1"))
     assert r.quantity == Decimal("5.0000")
+
+def test_finance_lifecycle_translates_commit_conflict(monkeypatch):
+    s=db(); t=Tenant(name="A",status="active"); s.add(t); s.flush()
+    s.add(FiscalPeriod(tenant_id=t.id,name="open",starts_on=date(2026,1,1),ends_on=date(2026,12,31),closed=False)); s.commit()
+    def conflicting_commit():
+        raise IntegrityError("insert", {}, Exception("duplicate"))
+    monkeypatch.setattr(s, "commit", conflicting_commit)
+    cmd=JournalCommand("RACE","YER",(JournalLine("cash",Decimal("1"),Decimal("0")),JournalLine("sales",Decimal("0"),Decimal("1"))))
+    with pytest.raises(AccountingInvariantError): FinanceLifecycleService(s).post(t.id,cmd,date(2026,1,1))

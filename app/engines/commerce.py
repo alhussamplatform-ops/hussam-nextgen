@@ -101,7 +101,8 @@ class CommerceProductionService:
         ))
 
     def create_draft(self, tenant_id: int, reference: str, warehouse_id: str,
-                     currency: str, lines: list[OrderLineInput]) -> SalesOrder:
+                     currency: str, lines: list[OrderLineInput], *,
+                     commit: bool = True) -> SalesOrder:
         if not reference or not currency:
             raise CommerceError('reference and currency are required')
         if not lines:
@@ -126,11 +127,15 @@ class CommerceProductionService:
         self._event(tenant_id, 'commerce.order.created', order.id,
                     {'reference': reference, 'status': order.status, 'total': str(total), 'currency': currency})
         try:
-            self.db.commit(); self.db.refresh(order); return order
+            if commit:
+                self.db.commit(); self.db.refresh(order)
+            else:
+                self.db.flush()
+            return order
         except IntegrityError:
             self.db.rollback(); raise CommerceError('duplicate order reference')
 
-    def confirm(self, tenant_id: int, order_id: int) -> SalesOrder:
+    def confirm(self, tenant_id: int, order_id: int, *, commit: bool = True) -> SalesOrder:
         order = self.db.scalar(select(SalesOrder).where(
             SalesOrder.id == order_id, SalesOrder.tenant_id == tenant_id))
         if order is None:
@@ -161,7 +166,9 @@ class CommerceProductionService:
         self._event(tenant_id, 'commerce.order.confirmed', order.id,
                     {'reference': order.reference, 'status': order.status})
         try:
-            self.db.commit(); self.db.refresh(order); return order
+            if commit:
+                self.db.commit(); self.db.refresh(order)
+            return order
         except IntegrityError:
             self.db.rollback(); raise CommerceError('order confirmation conflict')
 

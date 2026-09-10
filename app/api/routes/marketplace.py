@@ -1,6 +1,6 @@
 from decimal import Decimal
 from datetime import date
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Header, Query, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, select, func
 from app.api.dependencies import get_context, get_session
@@ -93,8 +93,8 @@ def add_cart(body:CartIn,ctx=Depends(get_context),db=Depends(get_session)): Mark
 def remove_cart(listing_id:int,ctx=Depends(get_context),db=Depends(get_session)): MarketplaceService(db).remove_from_cart(ctx.user_id,listing_id); return MarketplaceService(db).cart_view(ctx.user_id)
 
 @router.post('/buyer/checkout',status_code=201)
-def checkout(body:CheckoutIn,ctx=Depends(get_context),db=Depends(get_session)):
-    orders=MarketplaceService(db).checkout(ctx.user_id,body.shipping_address_id,body.shipping_fee,body.platform_fee_bps,body.shipping_quote_id)
+def checkout(body:CheckoutIn, idempotency_key: str | None = Header(default=None, alias='Idempotency-Key'), ctx=Depends(get_context),db=Depends(get_session)):
+    orders=MarketplaceService(db).checkout(ctx.user_id,body.shipping_address_id,body.shipping_fee,body.platform_fee_bps,body.shipping_quote_id,idempotency_key,ctx.tenant_id)
     return {'orders':[{'id':o.id,'reference':o.reference,'seller_tenant_id':o.seller_tenant_id,'currency':o.currency,'subtotal':str(o.subtotal),'shipping_fee':str(o.shipping_fee),'platform_fee':str(o.platform_fee),'total':str(o.total),'status':o.status} for o in orders]}
 
 @router.post('/buyer/orders/{order_id}/payment-intent',status_code=201)

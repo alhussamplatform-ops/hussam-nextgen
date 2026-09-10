@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.core.contracts import JournalCommand, JournalLine
 from app.core.models import FiscalPeriod, Journal, JournalLineRecord, JournalLink, ExchangeRate
@@ -26,7 +27,13 @@ class FinanceLifecycleService:
             if not period: raise FinanceLifecycleError('no fiscal period for posting date')
             if period.closed: raise FinanceLifecycleError('fiscal period is closed')
         j=Journal(tenant_id=tenant_id,reference=command.reference.strip(),currency=command.currency.strip().upper(),status='posted')
-        self.db.add(j); self.db.flush(); self.db.add_all([JournalLineRecord(journal_id=j.id,account=x.account,debit=x.debit,credit=x.credit) for x in command.lines]); self.db.commit(); self.db.refresh(j); return j
+        try:
+            self.db.add(j); self.db.flush(); self.db.add_all([JournalLineRecord(journal_id=j.id,account=x.account,debit=x.debit,credit=x.credit) for x in command.lines])
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise AccountingInvariantError('journal reference conflicts with an existing journal') from exc
+        self.db.refresh(j); return j
     def reverse(self, tenant_id:int, journal_id:int, reference:str):
         original=self.db.scalar(select(Journal).where(Journal.id==journal_id,Journal.tenant_id==tenant_id,Journal.status=='posted'))
         if not original: raise FinanceLifecycleError('posted journal not found')
