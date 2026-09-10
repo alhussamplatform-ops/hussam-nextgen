@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hussam NextGen — مركز التشغيل</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--ink:#17191c;--muted:#68707a;--line:#e3e6ea;--accent:#111;--ok:#146c43;--bad:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}button,input,select{font:inherit}a{color:inherit}
+header{background:#111;color:#fff;position:sticky;top:0;z-index:10;border-bottom:1px solid #222}.head{max-width:1280px;margin:auto;padding:16px 20px;display:flex;gap:20px;align-items:center;justify-content:space-between}.brand{font-weight:800;font-size:20px}.badge{font-size:12px;padding:5px 9px;border:1px solid #555;border-radius:999px;color:#ddd}
+.layout{max-width:1280px;margin:auto;display:grid;grid-template-columns:220px 1fr;gap:18px;padding:18px}.side{position:sticky;top:80px;height:max-content;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px}.nav{width:100%;text-align:right;border:0;background:transparent;padding:11px;border-radius:9px;cursor:pointer}.nav:hover,.nav.active{background:#f0f1f3;font-weight:700}.content{min-width:0}.view{display:none}.view.active{display:block}.title{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}.title h1{margin:0;font-size:25px}.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}.stat{font-size:28px;font-weight:800;margin-top:4px}.section{margin-top:14px}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#111;color:#fff;padding:9px 13px;border-radius:9px;cursor:pointer}.btn.secondary{background:#fff;color:#111}.btn:disabled{opacity:.5;cursor:not-allowed}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.field label{display:block;font-size:13px;font-weight:700;margin-bottom:4px}.field input,.field select{width:100%;border:1px solid #ccd1d7;border-radius:9px;padding:10px;background:#fff}.full{grid-column:1/-1}.notice{padding:11px;border-radius:9px;background:#f0f1f3;white-space:pre-wrap;overflow:auto}.notice.ok{background:#eaf7ef;color:var(--ok)}.notice.bad{background:#fff0ee;color:var(--bad)}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}.table{width:100%;border-collapse:collapse;min-width:650px}.table th,.table td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}.table th{font-size:12px;color:var(--muted);background:#fafafa}.empty{text-align:center;padding:28px;color:var(--muted)}
+.tokenbox{display:grid;grid-template-columns:1fr auto;gap:8px}.tokenbox input{width:100%;padding:10px;border:1px solid #ccd1d7;border-radius:9px}.help{font-size:12px;color:var(--muted);margin-top:7px}.danger{color:var(--bad)}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{position:static;display:flex;overflow:auto;gap:4px}.nav{white-space:nowrap}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.layout{padding:10px}.grid,.form{grid-template-columns:1fr}.title{align-items:flex-start;flex-direction:column}.tokenbox{grid-template-columns:1fr}.head{padding:13px}}
+</style></head>
+<body>
+<header><div class="head"><div><div class="brand">Hussam NextGen</div><div class="badge">مركز التشغيل · v1.29.0</div></div><div id="authState" class="badge">غير متصل</div></div></header>
+<div class="layout">
+<aside class="side">
+<button class="nav active" data-view="home">الرئيسية</button><button class="nav" data-view="retail">تجارة التجزئة</button><button class="nav" data-view="marketplace">Marketplace</button><button class="nav" data-view="products">المنتجات والمخزون</button><button class="nav" data-view="sales">المبيعات</button><button class="nav" data-view="purchasing">المشتريات</button><button class="nav" data-view="payments">المدفوعات</button><button class="nav" data-view="logistics">الشحن</button><button class="nav" data-view="finance">المالية والمستندات</button><button class="nav" data-view="session">الجلسة والأمان</button>
+</aside>
+<main class="content">
+<section id="home" class="view active"><div class="title"><div><h1>لوحة المؤسسة</h1><div class="muted">قراءة تشغيلية موحدة من الـ API، ضمن سياق المؤسسة المصادق عليه.</div></div><button class="btn" onclick="loadDashboard()">تحديث</button></div><div id="dash" class="grid"></div><div class="section card"><h3>حالة الأنظمة</h3><div id="dashStatus" class="notice">اضغط تحديث بعد تسجيل رمز الدخول.</div></div></section>
+
+<section id="retail" class="view"><div class="title"><div><h1>تجارة التجزئة</h1><div class="muted">طبقة قطاعية فوق Core: العملاء، هوية المنتج، الأسعار، ونوبات الصندوق. المخزون والمبيعات والمالية تبقى في محركاتها المصدرية.</div></div><button class="btn" onclick="loadRetailOverview()">تحديث</button></div><div id="retailStats" class="grid"></div><div class="grid section"><div class="card"><b>عميل</b><form id="customerForm" class="form section"><div class="field"><label>المعرف</label><input name="id" required></div><div class="field"><label>الاسم</label><input name="name" required></div><div class="field"><label>الهاتف</label><input name="phone"></div><div class="field"><label>النوع</label><select name="customer_type"><option value="individual">فرد</option><option value="business">منشأة</option></select></div><div class="full"><button class="btn">حفظ العميل</button></div></form></div><div class="card"><b>منتج تجزئة</b><form id="retailProductForm" class="form section"><div class="field"><label>معرف المخزون</label><input name="item_id" required></div><div class="field"><label>الاسم</label><input name="name" required></div><div class="field"><label>SKU</label><input name="sku" required></div><div class="field"><label>الباركود</label><input name="barcode"></div><div class="field"><label>التصنيف</label><input name="category"></div><div class="field"><label>العملة</label><input name="currency" placeholder="YER"></div><div class="field"><label>السعر</label><input name="unit_price" type="number" step="0.0001" min="0"></div><div class="full"><button class="btn">حفظ المنتج</button></div></form></div></div><div class="section toolbar"><button class="btn secondary" onclick="loadRetailProducts()">منتجات التجزئة</button><button class="btn secondary" onclick="loadRetailCustomers()">العملاء</button><button class="btn secondary" onclick="loadRetailShifts()">نوبات الصندوق</button></div><div class="section" id="retailTable"></div></section>
+<section id="products" class="view"><div class="title"><div><h1>المنتجات والمخزون</h1><div class="muted">المنتج والمستودع وحركات المخزون من نفس الحدود التشغيلية.</div></div></div><div class="grid"><div class="card"><b>إضافة منتج</b><form id="itemForm" class="form section"><div class="field"><label>المعرف</label><input name="id" required></div><div class="field"><label>الاسم</label><input name="name" required></div><div class="field"><label>الوحدة</label><input name="unit_code" value="unit"></div><div class="full"><button class="btn">حفظ المنتج</button></div></form></div><div class="card"><b>إضافة مستودع</b><form id="whForm" class="form section"><div class="field"><label>المعرف</label><input name="id" required></div><div class="field"><label>الاسم</label><input name="name" required></div><div class="field"><label>السماح بالسالب</label><select name="allow_negative_stock"><option value="false">لا</option><option value="true">نعم</option></select></div><div class="full"><button class="btn">حفظ المستودع</button></div></form></div></div><div class="section toolbar"><button class="btn secondary" onclick="loadProducts()">المنتجات</button><button class="btn secondary" onclick="loadWarehouses()">المستودعات</button><button class="btn secondary" onclick="loadMovements()">حركات المخزون</button></div><div class="section" id="productTable"></div></section>
+
+<section id="marketplace" class="view"><div class="title"><div><h1>Marketplace</h1><div class="muted">سوق متعدد البائعين فوق Core: كتالوج عام، بائعون، سلة، Checkout، طلبات، عمولات وتسويات.</div></div><button class="btn" onclick="loadMarketListings()">تحديث السوق</button></div><div class="card"><form id="marketSearch" class="form"><div class="field"><label>بحث</label><input name="q" placeholder="اسم المنتج أو الخدمة"></div><div class="field"><label>Seller slug</label><input name="seller_slug"></div><div class="full"><button class="btn secondary">بحث</button></div></form></div><div class="section" id="marketListings"></div><div class="grid section"><div class="card"><h3>السلة</h3><div id="marketCart" class="notice">تحقق من الجلسة ثم حدّث السلة.</div><button class="btn" onclick="loadMarketCart()">تحديث السلة</button></div><div class="card"><h3>Checkout</h3><form id="marketCheckout" class="form"><div class="field"><label>رقم العنوان</label><input name="shipping_address_id" type="number" min="1"></div><div class="field"><label>رسوم الشحن</label><input name="shipping_fee" type="number" step="0.0001" min="0" value="0"></div><div class="field"><label>عمولة المنصة (BPS)</label><input name="platform_fee_bps" type="number" min="0" max="3000" value="500"></div><div class="full"><button class="btn">إنشاء الطلب</button></div></form><div id="marketCheckoutResult" class="notice section">لم يتم تنفيذ Checkout.</div></div></div><div class="section" id="marketOrders"></div></section>
+<section id="sales" class="view"><div class="title"><div><h1>المبيعات</h1><div class="muted">قائمة أوامر البيع وحالاتها.</div></div><button class="btn" onclick="loadList('sales/orders','salesTable')">تحديث</button></div><div id="salesTable"></div></section>
+<section id="purchasing" class="view"><div class="title"><div><h1>المشتريات</h1><div class="muted">الموردون وأوامر الشراء وحالات الاستلام.</div></div><button class="btn" onclick="loadList('purchasing/orders','purchaseTable')">تحديث</button></div><div id="purchaseTable"></div><div class="section" id="supplierTable"></div></section>
+<section id="payments" class="view"><div class="title"><div><h1>المدفوعات</h1><div class="muted">عرض intents والتسويات؛ تنفيذ الدفع الحقيقي يبقى مرتبطًا بمزود معتمد وويبهوك موثوق.</div></div><button class="btn" onclick="loadList('payments/intents','paymentTable')">تحديث</button></div><div id="paymentTable"></div></section>
+<section id="logistics" class="view"><div class="title"><div><h1>الشحن</h1><div class="muted">الشحنات والتتبع وحالة التسليم.</div></div><button class="btn" onclick="loadList('logistics/shipments','logisticsTable')">تحديث</button></div><div id="logisticsTable"></div></section>
+<section id="finance" class="view"><div class="title"><div><h1>المالية والمستندات</h1><div class="muted">القيود والمستندات كسجلات أعمال ضمن Core.</div></div></div><div class="grid"><div class="card"><button class="btn" onclick="loadList('finance/journals','financeTable')">تحديث القيود</button></div><div class="card"><button class="btn" onclick="loadList('documents','documentTable')">تحديث المستندات</button></div></div><div class="section" id="financeTable"></div><div class="section" id="documentTable"></div></section>
+<section id="session" class="view"><div class="title"><div><h1>الجلسة والأمان</h1><div class="muted">الرمز يبقى في متصفحك فقط ويُرسل كـ Bearer إلى API.</div></div></div><div class="card"><div class="tokenbox"><input id="token" type="password" autocomplete="off" placeholder="الصق JWT هنا"><button class="btn" onclick="checkSession()">تحقق</button></div><div class="help">لا توجد بيانات اعتماد افتراضية أو تجاوز لصلاحيات المؤسسة.</div><div id="sessionResult" class="notice section">لم يتم التحقق بعد.</div></div></section>
+</main></div>
+<script>
+const $ = (id) => document.getElementById(id);
+function storedToken() { try { return localStorage.getItem('hussam_token') || ''; } catch { return ''; } }
+function saveToken(v) { try { localStorage.setItem('hussam_token', v); } catch {} }
+const token = () => (($('token')?.value || storedToken()).trim());
+function setNotice(el, text, ok = false) {
+  el.textContent = text;
+  el.className = 'notice ' + (ok ? 'ok' : '');
+}
+async function api(path, opt = {}) {
+  const headers = {'Accept': 'application/json', ...(opt.headers || {})};
+  const t = token();
+  if (t) headers.Authorization = 'Bearer ' + t;
+  const r = await fetch('/api/v1/' + path, {...opt, headers});
+  const raw = await r.text();
+  let data;
+  try { data = JSON.parse(raw); } catch { data = raw; }
+  return {status: r.status, data};
+}
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, (c) => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[c]));
+}
+function table(el, items, columns) {
+  if (!items?.length) { $(el).innerHTML = '<div class="card empty">لا توجد سجلات.</div>'; return; }
+  $(el).innerHTML = '<div class="tablewrap"><table class="table"><thead><tr>' +
+    columns.map(c => '<th>' + esc(c[1]) + '</th>').join('') +
+    '</tr></thead><tbody>' +
+    items.map(x => '<tr>' + columns.map(c => '<td>' + esc(x[c[0]]) + '</td>').join('') + '</tr>').join('') +
+    '</tbody></table></div>';
+}
+async function loadDashboard() {
+  const r = await api('dashboard/summary');
+  if (r.status !== 200) { setNotice($('dashStatus'), r.status + ' — ' + JSON.stringify(r.data)); return; }
+  const c = r.data.counts || {};
+  $('dash').innerHTML = Object.entries(c).map(([k,v]) => '<div class="card"><div class="muted">' + esc(k) + '</div><div class="stat">' + esc(v) + '</div></div>').join('');
+  setNotice($('dashStatus'), 'المؤسسة #' + r.data.tenant_id + ' · المستخدم ' + r.data.user_id + '\n' + JSON.stringify(r.data.status, null, 2), true);
+  $('authState').textContent = 'متصل · مؤسسة ' + r.data.tenant_id;
+}
+async function checkSession() {
+  const t = token();
+  if (!t) { setNotice($('sessionResult'), 'أدخل JWT أولًا.'); return; }
+  saveToken(t);
+  const r = await api('session');
+  setNotice($('sessionResult'), r.status + '\n' + JSON.stringify(r.data, null, 2), r.status === 200);
+  if (r.status === 200) { $('authState').textContent = 'متصل · مؤسسة ' + r.data.tenant_id; await loadDashboard(); }
+}
+async function loadList(path, id) {
+  const r = await api(path);
+  if (r.status !== 200) { setNotice($(id), r.status + ' — ' + JSON.stringify(r.data)); return; }
+  const items = r.data.items || [];
+  const keys = Object.keys(items[0] || {});
+  table(id, items, keys.map(k => [k, k]));
+}
+async function loadProducts() {
+  const r = await api('products');
+  if (r.status === 200) table('productTable', r.data.items, [['id','المعرف'],['name','الاسم'],['unit_code','الوحدة'],['active','نشط']]);
+  else setNotice($('productTable'), r.status + ' — ' + JSON.stringify(r.data));
+}
+async function loadWarehouses() {
+  const r = await api('warehouses');
+  if (r.status === 200) table('productTable', r.data.items, [['id','المعرف'],['name','الاسم'],['allow_negative_stock','سالب مسموح'],['active','نشط']]);
+  else setNotice($('productTable'), r.status + ' — ' + JSON.stringify(r.data));
+}
+async function loadMovements() {
+  const r = await api('inventory/movements');
+  if (r.status === 200) table('productTable', r.data.items, [['id','ID'],['item_id','المنتج'],['warehouse_id','المستودع'],['quantity','الكمية'],['direction','الاتجاه'],['reference','المرجع']]);
+  else setNotice($('productTable'), r.status + ' — ' + JSON.stringify(r.data));
+}
+function bindForm(formId, path, transform) {
+  $(formId).addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData($(formId)));
+    if (transform) transform(data);
+    const r = await api(path, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+    setNotice($('productTable'), r.status + '\n' + JSON.stringify(r.data), r.status >= 200 && r.status < 300);
+    if (r.status >= 200 && r.status < 300) { $(formId).reset(); await loadProducts(); await loadDashboard(); }
+  });
+}
+bindForm('itemForm', 'inventory/items');
+bindForm('customerForm', 'retail/customers');
+bindForm('retailProductForm', 'retail/products');
+async function loadRetailOverview(){const r=await api('retail/overview');if(r.status!==200){setNotice($('retailStats'),r.status+' — '+JSON.stringify(r.data));return;} $('retailStats').innerHTML=Object.entries(r.data).filter(([k])=>k!=='tenant_id').map(([k,v])=>'<div class="card"><div class="muted">'+esc(k)+'</div><div class="stat">'+esc(v)+'</div></div>').join('');}
+async function loadRetailProducts(){const r=await api('retail/products');if(r.status===200)table('retailTable',r.data.items,[['item_id','المنتج'],['name','الاسم'],['sku','SKU'],['barcode','الباركود'],['category','التصنيف'],['prices','الأسعار']]);else setNotice($('retailTable'),r.status+' — '+JSON.stringify(r.data));}
+async function loadRetailCustomers(){const r=await api('retail/customers');if(r.status===200)table('retailTable',r.data.items,[['id','المعرف'],['name','الاسم'],['phone','الهاتف'],['customer_type','النوع'],['credit_limit','حد الائتمان']]);else setNotice($('retailTable'),r.status+' — '+JSON.stringify(r.data));}
+async function loadRetailShifts(){const r=await api('retail/registers/shifts');if(r.status===200)table('retailTable',r.data.items,[['id','ID'],['register_id','الصندوق'],['operator_id','المشغل'],['currency','العملة'],['opening_cash','افتتاحي'],['closing_cash','ختامي'],['status','الحالة']]);else setNotice($('retailTable'),r.status+' — '+JSON.stringify(r.data));}
+
+bindForm('whForm', 'inventory/warehouses', d => { d.allow_negative_stock = d.allow_negative_stock === 'true'; });
+async function loadMarketListings(){const f=new FormData($('marketSearch'));const p=new URLSearchParams();for(const [k,v] of f.entries())if(v)p.set(k,v);const r=await api('marketplace/listings?'+p.toString());if(r.status===200)table('marketListings',r.data.items,[['title','العنوان'],['listing_type','النوع'],['unit_price','السعر'],['currency','العملة'],['stock','المتاح'],['seller','البائع']]);else setNotice($('marketListings'),r.status+' — '+JSON.stringify(r.data));}
+async function loadMarketCart(){const r=await api('marketplace/buyer/cart');if(r.status===200){$('marketCart').innerHTML=JSON.stringify(r.data,null,2); }else setNotice($('marketCart'),r.status+' — '+JSON.stringify(r.data));}
+$('marketSearch').addEventListener('submit',e=>{e.preventDefault();loadMarketListings();});
+$('marketCheckout').addEventListener('submit',async e=>{e.preventDefault();const d=Object.fromEntries(new FormData($('marketCheckout')));d.shipping_address_id=d.shipping_address_id?Number(d.shipping_address_id):null;d.platform_fee_bps=Number(d.platform_fee_bps);const r=await api('marketplace/buyer/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});setNotice($('marketCheckoutResult'),r.status+'\n'+JSON.stringify(r.data,null,2),r.status>=200&&r.status<300);if(r.status>=200&&r.status<300)loadMarketCart();});
+async function loadMarketOrders(){const r=await api('marketplace/buyer/orders');if(r.status===200)table('marketOrders',r.data.items,[['id','ID'],['reference','المرجع'],['seller_tenant_id','البائع'],['total','الإجمالي'],['currency','العملة'],['status','الحالة']]);else setNotice($('marketOrders'),r.status+' — '+JSON.stringify(r.data));}
+for (const n of document.querySelectorAll('.nav')) {
+  n.addEventListener('click', () => {
+    document.querySelectorAll('.nav').forEach(x => x.classList.remove('active'));
+    n.classList.add('active');
+    document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+    $(n.dataset.view).classList.add('active');
+  });
+}
+if (storedToken() && $('token')) $('token').value = storedToken();
+</script></body></html>

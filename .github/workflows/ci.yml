@@ -1,0 +1,43 @@
+name: Hussam NextGen CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install locked baseline tooling
+        run: python -m pip install -r requirements.lock
+      - name: Install project
+        run: python -m pip install -e '.[test]'
+      - name: Repository baseline audit
+        run: python scripts/baseline_audit.py
+      - name: Compile Python sources
+        run: python -m compileall -q app alembic tests
+      - name: Run tests
+        run: python -m pytest -q
+      - name: Fresh SQLite migration
+        env:
+          DATABASE_URL: sqlite:////tmp/hussam-nextgen-ci.db
+        run: alembic upgrade head
+      - name: Alembic schema drift check
+        env:
+          DATABASE_URL: sqlite:////tmp/hussam-nextgen-ci.db
+        run: alembic check
+      - name: Python dependency consistency
+        run: python -m pip check
+      - name: Dependency vulnerability audit
+        run: |
+          python -m pip install pip-audit
+          pip-audit
