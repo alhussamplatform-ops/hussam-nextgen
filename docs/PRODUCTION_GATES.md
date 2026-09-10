@@ -5,7 +5,7 @@ A gate is **GREEN** only when there is reproducible evidence, not a design state
 | Gate | Status at v1.30 | Evidence required |
 |---|---|---|
 | Repository hygiene | GREEN | baseline audit + clean source tree |
-| Unit/integration suite | GREEN | 138 passing tests |
+| Unit/integration suite | GREEN | 139 passing tests |
 | Python compilation | GREEN | compileall |
 | Migration integrity | GREEN | fresh PostgreSQL Alembic + `alembic check` through `0015` |
 | PostgreSQL production DB | PARTIAL | PostgreSQL 16.15 migration, constraints, and concurrency probes verified locally; production/staging performance evidence remains |

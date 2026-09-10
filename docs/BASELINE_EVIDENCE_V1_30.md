@@ -11,7 +11,7 @@ baseline archive:
 
 - Baseline audit: **PASS**
 - Python compilation: **PASS**
-- Automated suite: **138 passed, 0 failed**
+- Automated suite: **139 passed, 0 failed**
 - Fresh Alembic chain: **PASS** on PostgreSQL 16.15 and SQLite, `0001` → `0015_marketplace_trust_ai_integration`
 - Alembic drift check: **PASS**, no new upgrade operations detected
 - Release tree secret/runtime artifact audit: **PASS**

@@ -43,6 +43,21 @@ def test_api_health_and_auth_boundary():
         assert client.get("/api/v1/inventory/stock/x/y",headers={"Authorization":f"Bearer {token}"}).status_code==400
     finally: teardown()
 
+def test_readiness_reports_database_failure(monkeypatch):
+    from app.api import main
+    class BrokenConnection:
+        def __enter__(self): raise RuntimeError("database unavailable")
+        def __exit__(self, *args): return False
+    class BrokenEngine:
+        def connect(self): return BrokenConnection()
+        def dispose(self): pass
+    monkeypatch.setattr(main, "make_engine", lambda settings: BrokenEngine())
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://invalid")
+    client, _, _ = setup_client()
+    try:
+        assert client.get("/ready").status_code == 503
+    finally: teardown()
+
 def test_inventory_api_uses_authenticated_tenant():
     client,Factory,token=setup_client()
     try:
