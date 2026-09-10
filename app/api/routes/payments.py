@@ -1,5 +1,6 @@
 from decimal import Decimal
-from fastapi import APIRouter,Depends
+import os
+from fastapi import APIRouter,Depends,Header,HTTPException,Request
 from pydantic import BaseModel,Field
 from app.api.dependencies import get_context,get_session
 from app.engines.payments import PaymentProductionService
@@ -17,13 +18,15 @@ def provider(reference:str,body:Provider,ctx=Depends(get_context),db=Depends(get
     x=PaymentProductionService(db).attach_provider_payment(ctx.tenant_id,reference,body.provider_payment_id);return {"reference":x.reference,"provider_payment_id":x.provider_payment_id}
 
 class Webhook(BaseModel):
+    tenant_id:int
     provider:str; event_id:str; event_type:str; payment_reference:str; provider_payment_id:str; status:str; payload:dict|None=None
 class Settlement(BaseModel):
     settlement_reference:str; actual_amount:Decimal=Field(gt=0); currency:str; posting_date:str
 
 @router.post("/webhooks")
-def webhook(body:Webhook,ctx=Depends(get_context),db=Depends(get_session)):
-    x=PaymentProductionService(db).process_webhook(ctx.tenant_id, **body.model_dump()); return {"reference":x.reference,"status":x.status,"provider_payment_id":x.provider_payment_id}
+async def webhook(request:Request, body:Webhook, signature: str | None = Header(default=None, alias="X-Webhook-Signature"), db=Depends(get_session)):
+    PaymentProductionService.verify_webhook_signature(await request.body(), signature or "", os.getenv("PAYMENT_WEBHOOK_SECRET", ""))
+    x=PaymentProductionService(db).process_webhook(body.tenant_id, **body.model_dump(exclude={"tenant_id"})); return {"reference":x.reference,"status":x.status,"provider_payment_id":x.provider_payment_id}
 
 @router.post("/intents/{reference}/capture")
 def capture(reference:str, posting_date:str,ctx=Depends(get_context),db=Depends(get_session)):

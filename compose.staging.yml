@@ -18,10 +18,16 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://hussam:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the staging environment}@db:5432/hussam
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in the staging environment}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?set PAYMENT_WEBHOOK_SECRET in the staging environment}
       SQL_ECHO: "false"
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     ports:
       - "8000:8000"
 

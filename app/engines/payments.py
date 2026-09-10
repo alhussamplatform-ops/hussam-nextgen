@@ -3,6 +3,8 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 import json
 from typing import Protocol
+import hashlib
+import hmac
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -32,6 +34,15 @@ class PaymentProductionService:
     """Provider-agnostic payment lifecycle. Providers never write authoritative finance directly."""
     def __init__(self, db: Session):
         self.db = db
+
+    @staticmethod
+    def verify_webhook_signature(payload: bytes, signature: str, secret: str) -> None:
+        if not secret or not signature:
+            raise PaymentError('authenticated webhook signature is required')
+        expected = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+        supplied = signature.removeprefix('sha256=')
+        if not hmac.compare_digest(expected, supplied):
+            raise PaymentError('invalid webhook signature')
 
     def _event(self, tenant_id, event_type, aggregate_id, payload):
         from uuid import uuid4

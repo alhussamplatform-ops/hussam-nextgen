@@ -5,18 +5,18 @@ A gate is **GREEN** only when there is reproducible evidence, not a design state
 | Gate | Status at v1.30 | Evidence required |
 |---|---|---|
 | Repository hygiene | GREEN | baseline audit + clean source tree |
-| Unit/integration suite | GREEN | 129 passing tests |
+| Unit/integration suite | GREEN | 138 passing tests |
 | Python compilation | GREEN | compileall |
-| Migration integrity | GREEN* | fresh Alembic + `alembic check` (*SQLite validation path) |
-| PostgreSQL production DB | BLOCKED | staging/prod PostgreSQL migration + concurrency tests |
+| Migration integrity | GREEN | fresh PostgreSQL Alembic + `alembic check` through `0015` |
+| PostgreSQL production DB | PARTIAL | PostgreSQL 16.15 migration, constraints, and concurrency probes verified locally; production/staging performance evidence remains |
 | Identity | BLOCKED | approved IdP, MFA/session/recovery tests, production configuration |
-| Payments | BLOCKED | provider sandbox + signed webhooks + reconciliation/refund/chargeback tests |
+| Payments | PARTIAL | provider-agnostic lifecycle and HMAC webhook boundary tested; live provider sandbox, refunds, chargebacks, and reconciliation remain |
 | Marketplace payouts | BLOCKED | verified payout rail + failure/retry/reconciliation evidence |
 | Browser E2E | BLOCKED | deployed staging URL and automated browser journey |
-| Security/SAST/SCA | PARTIAL | baseline scanner + CI; external SAST/SCA and threat model still required |
+| Security/SAST/SCA | PARTIAL | baseline scanner, dependency audit, request headers, and webhook authentication; external SAST/SCA and threat model still required |
 | Secrets | PARTIAL | repository scan; production secret manager + rotation still required |
 | Backups/restore | BLOCKED | tested backup and restore drill |
-| Observability | BLOCKED | logs/metrics/traces/alerts + runbooks |
+| Observability | PARTIAL | request correlation, structured request logs, health/readiness endpoints; metrics/traces/alerts/runbooks remain |
 | Deployment/rollback | BLOCKED | immutable build + staged deploy + rollback drill |
 | Abuse/rate limiting | BLOCKED | gateway/WAF/rate-limit controls and load/abuse tests |
 | Legal/compliance | BLOCKED | marketplace/payment/identity operational review |

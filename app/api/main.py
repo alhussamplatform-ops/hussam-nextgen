@@ -1,11 +1,33 @@
-from fastapi import FastAPI, Request
+import os
+import logging
+import time
+from uuid import uuid4
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from app.domains.registry import DOMAINS
 from app.api.routes import inventory, commerce, procurement, payments, documents, finance, logistics, workflow, session, dashboard, operations, retail, ai_hus, marketplace
+from app.core.db.config import DatabaseSettings
+from app.core.db.session import make_engine
 
 VERSION="1.30.0"
 app=FastAPI(title="Hussam Yemeni Sovereign Platform — NextGen",version=VERSION)
+logger = logging.getLogger("hussam_nextgen.http")
+
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    started = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = round((time.perf_counter() - started) * 1000, 2)
+    logger.info("http_request", extra={"request_id": request_id, "method": request.method, "path": request.url.path, "status_code": response.status_code, "duration_ms": duration_ms})
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
+    return response
 
 @app.exception_handler(ValueError)
 async def domain_error_handler(request: Request, exc: ValueError):
@@ -28,5 +50,18 @@ app.mount("/console", StaticFiles(directory="app/ui", html=True), name="console"
 
 @app.get("/health")
 def health(): return {"status":"ok","platform":"hussam-nextgen","version":VERSION}
+
+@app.get("/ready")
+def ready():
+    settings = DatabaseSettings.from_env()
+    engine = make_engine(settings)
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return {"status": "ready", "database": "ok", "version": VERSION}
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="database readiness check failed") from exc
+    finally:
+        engine.dispose()
 @app.get("/api/v1/platform/manifest")
 def manifest(): return {"domains":DOMAINS,"status":"api","version":VERSION,"architecture":{"core":"sovereign","engines":["identity","finance","inventory","commerce","procurement","payments","logistics","workflow","documents"],"verticals":["retail","marketplace"],"ai":"intelligence-v1.26+marketplace","hus_compiler":"operational-v1.1","marketplace":"complete-hardened-v1.29"}}

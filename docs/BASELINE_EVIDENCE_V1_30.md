@@ -11,14 +11,20 @@ baseline archive:
 
 - Baseline audit: **PASS**
 - Python compilation: **PASS**
-- Automated suite: **129 passed, 0 failed**
-- Fresh Alembic chain: **PASS**, `0001` → `0015_marketplace_trust_ai_integration`
+- Automated suite: **138 passed, 0 failed**
+- Fresh Alembic chain: **PASS** on PostgreSQL 16.15 and SQLite, `0001` → `0015_marketplace_trust_ai_integration`
 - Alembic drift check: **PASS**, no new upgrade operations detected
 - Release tree secret/runtime artifact audit: **PASS**
 - Editable package installation: **PASS** after explicit setuptools discovery
 	was added for the `app*` package namespace.
 - Dependency consistency: **PASS** with `pip check`.
 - Dependency vulnerability audit: **PASS** with the locked patched releases.
+- PostgreSQL checkout concurrency: **PASS**, same-key replay converges to one
+	order and different keys serialize on the cart lock.
+- Checkout rollback injection: **PASS**, no SalesOrder, reservation, payout,
+	Marketplace order, or idempotency record remains after failure.
+- Payment webhook signature boundary: **PASS**, HMAC verification is required
+	at the HTTP boundary.
 
 ## Reproducibility assets
 

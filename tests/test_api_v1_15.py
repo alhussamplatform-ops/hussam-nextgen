@@ -34,7 +34,10 @@ def teardown():
 def test_api_health_and_auth_boundary():
     client,_,token=setup_client()
     try:
-        assert client.get("/health").status_code==200
+        health=client.get("/health")
+        assert health.status_code==200
+        assert health.headers["X-Request-ID"]
+        assert health.headers["X-Content-Type-Options"]=="nosniff"
         assert client.get("/api/v1/inventory/stock/x/y").status_code==401
         assert client.get("/api/v1/platform/manifest").json()["version"]=="1.30.0"
         assert client.get("/api/v1/inventory/stock/x/y",headers={"Authorization":f"Bearer {token}"}).status_code==400

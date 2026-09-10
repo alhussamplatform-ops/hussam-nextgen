@@ -42,12 +42,14 @@ This release prepares the repository for the **official independent NextGen GitH
 
 ### Verified in the release build
 
-- **129 tests passed**.
+- **138 tests passed**.
 - Python compilation passed.
-- Fresh Alembic migration through `0015_marketplace_trust_ai_integration` passed on the available SQLite validation path.
+- Fresh Alembic migration through `0015_marketplace_trust_ai_integration` passed on PostgreSQL 16.15 and SQLite validation paths.
 - `alembic check` passed.
 - Migration chain audit passed.
 - Repository secret/runtime artifact audit passed.
+- Authenticated payment webhook boundary, request correlation/security headers,
+  database readiness, and PostgreSQL checkout concurrency validation passed.
 
 ### Important: production status
 

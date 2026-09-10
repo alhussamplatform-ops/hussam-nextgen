@@ -1,5 +1,7 @@
 from datetime import date
 from decimal import Decimal
+import hashlib
+import hmac
 import pytest
 from app.core.persistence import make_session_factory
 from app.engines.identity import IdentityService
@@ -17,6 +19,16 @@ def setup():
     s = db(); t = IdentityService(s).create_tenant('Payments Tenant')
     s.add(FiscalPeriod(tenant_id=t.id, name='2026', starts_on=date(2026,1,1), ends_on=date(2026,12,31), closed=False)); s.commit()
     return s, t, PaymentProductionService(s)
+
+def test_webhook_signature_requires_exact_hmac():
+    payload = b'{"event":"captured"}'
+    secret = 'phase2-webhook-secret'
+    signature = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    PaymentProductionService.verify_webhook_signature(payload, signature, secret)
+    with pytest.raises(PaymentError, match='invalid webhook signature'):
+        PaymentProductionService.verify_webhook_signature(payload, 'bad', secret)
+    with pytest.raises(PaymentError, match='required'):
+        PaymentProductionService.verify_webhook_signature(payload, '', '')
 
 def test_create_and_webhook_are_tenant_scoped_and_idempotent():
     s,t,p=setup(); x=p.create_intent(t.id,'PAY-1','wallet',Decimal('100.25'),'YER')
